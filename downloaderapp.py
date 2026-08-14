@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, jsonify, send_file
 import os
-import glob
 import shutil
 import requests
 
@@ -28,43 +27,39 @@ def descargar():
     temp_dir = os.path.join(DOWNLOAD_DIR, session_id)
     os.makedirs(temp_dir, exist_ok=True)
 
-    # Configuración según la opción (1 = MP4, 2 = MP3)
     is_audio = (opcion == '2')
 
+    # Estructura v10 exacta aceptada por las instancias de Cobalt
     payload = {
-        'url': url,
-        'downloadMode': 'audio' if is_audio else 'auto',
-        'audioFormat': 'mp3' if is_audio else 'best',
-        'videoQuality': '1080'
+        "url": url,
+        "downloadMode": "audio" if is_audio else "auto",
+        "audioFormat": "mp3" if is_audio else "best",
+        "videoQuality": "1080"
     }
 
     headers = {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        "Accept": "application/json",
+        "Content-Type": "application/json"
     }
 
     try:
-        # Llamada a la API pública de Cobalt para bypass de restricciones
-        response = requests.post('https://api.cobalt.tools/', json=payload, headers=headers, timeout=15)
+        # Petición a la instancia pública de Cobalt
+        response = requests.post("https://co.wuk.sh/api/json", json=payload, headers=headers, timeout=20)
         res_data = response.json()
 
-        if response.status_code != 200 or res_data.get('status') == 'error':
-            error_msg = res_data.get('text', 'No se pudo procesar el enlace con la API.')
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            return jsonify({'success': False, 'message': f'Error de descarga: {error_msg}'}), 400
+        # Si responde con redirect o stream directo
+        media_url = res_data.get('url') or res_data.get('picker', [{}])[0].get('url')
 
-        # Si Cobalt devuelve un enlace directo o un stream, descargamos el archivo localmente
-        media_url = res_data.get('url')
         if not media_url:
+            error_msg = res_data.get('text', 'No se pudo obtener el enlace de descarga.')
             shutil.rmtree(temp_dir, ignore_errors=True)
-            return jsonify({'success': False, 'message': 'No se obtuvo respuesta válida de la red.'}), 500
+            return jsonify({'success': False, 'message': f'Error: {error_msg}'}), 400
 
-        # Formato de archivo de salida
+        # Guardar archivo localmente en Render para entregarlo al usuario
         ext = 'mp3' if is_audio else 'mp4'
-        nombre_archivo = f"video_{session_id[:8]}.{ext}"
+        nombre_archivo = f"descarga_{session_id[:8]}.{ext}"
         archivo_path = os.path.join(temp_dir, nombre_archivo)
 
-        # Guardar el archivo en el servidor
         file_res = requests.get(media_url, stream=True)
         with open(archivo_path, 'wb') as f:
             for chunk in file_res.iter_content(chunk_size=8192):

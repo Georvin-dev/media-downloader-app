@@ -32,17 +32,17 @@ def descargar():
     plantilla_salida = os.path.join(temp_dir, '%(title)s.%(ext)s')
 
     # Si ffmpeg está en el sistema (como en servidores de la nube) o localmente
-   ydl_opts = {
-            'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
-            'quiet': True,
-            'no_warnings': True,
-            'cookiefile': os.path.join(BASE_DIR, 'cookies.txt'),
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['mweb', 'ios']
-                }
+    ydl_opts = {
+        'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
+        'quiet': True,
+        'no_warnings': True,
+        'cookiefile': os.path.join(BASE_DIR, 'cookies.txt'),
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['mweb', 'ios']
             }
         }
+    }
 
     if opcion == '1':
         ydl_opts.update({

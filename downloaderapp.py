@@ -37,9 +37,11 @@ def descargar():
         'quiet': True,
         'no_warnings': True,
         'cookiefile': os.path.join(BASE_DIR, 'cookies.txt'),
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['mweb', 'ios']
+        'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
+        'quiet': True,
+        'no_warnings': True,
+        'username': 'oauth2',
+        'password': '',
             }
         }
     }

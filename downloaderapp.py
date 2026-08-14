@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, send_file
 import os
+import glob
 import shutil
 import requests
 
@@ -29,7 +30,12 @@ def descargar():
 
     is_audio = (opcion == '2')
 
-    # Estructura v10 exacta aceptada por las instancias de Cobalt
+    # Instancias actuales de la API pública de Cobalt
+    instances = [
+        "https://api.cobalt.tools",
+        "https://cobalt-api.koyeb.app"
+    ]
+
     payload = {
         "url": url,
         "downloadMode": "audio" if is_audio else "auto",
@@ -42,25 +48,34 @@ def descargar():
         "Content-Type": "application/json"
     }
 
+    media_url = None
+    last_error = ""
+
+    # Probamos las instancias activas si una falla
+    for instance in instances:
+        try:
+            response = requests.post(instance, json=payload, headers=headers, timeout=12)
+            res_data = response.json()
+            
+            if response.status_code == 200 and res_data.get('status') != 'error':
+                media_url = res_data.get('url') or (res_data.get('picker', [{}])[0].get('url') if res_data.get('picker') else None)
+                if media_url:
+                    break
+            else:
+                last_error = res_data.get('text', 'Error en el servidor de descarga.')
+        except Exception as e:
+            last_error = str(e)
+
+    if not media_url:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        return jsonify({'success': False, 'message': f'No se pudo obtener el archivo: {last_error}'}), 400
+
     try:
-        # Petición a la instancia pública de Cobalt
-        response = requests.post("https://co.wuk.sh/api/json", json=payload, headers=headers, timeout=20)
-        res_data = response.json()
-
-        # Si responde con redirect o stream directo
-        media_url = res_data.get('url') or res_data.get('picker', [{}])[0].get('url')
-
-        if not media_url:
-            error_msg = res_data.get('text', 'No se pudo obtener el enlace de descarga.')
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            return jsonify({'success': False, 'message': f'Error: {error_msg}'}), 400
-
-        # Guardar archivo localmente en Render para entregarlo al usuario
         ext = 'mp3' if is_audio else 'mp4'
         nombre_archivo = f"descarga_{session_id[:8]}.{ext}"
         archivo_path = os.path.join(temp_dir, nombre_archivo)
 
-        file_res = requests.get(media_url, stream=True)
+        file_res = requests.get(media_url, stream=True, timeout=30)
         with open(archivo_path, 'wb') as f:
             for chunk in file_res.iter_content(chunk_size=8192):
                 f.write(chunk)
@@ -73,7 +88,7 @@ def descargar():
 
     except Exception as e:
         shutil.rmtree(temp_dir, ignore_errors=True)
-        return jsonify({'success': False, 'message': f'Ocurrió un error :( {str(e)}'}), 500
+        return jsonify({'success': False, 'message': f'Error al guardar el archivo: {str(e)}'}), 500
 
 @app.route('/get-file/<session_id>/<filename>')
 def get_file(session_id, filename):

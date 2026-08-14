@@ -33,14 +33,15 @@ def descargar():
 
     # Si ffmpeg está en el sistema (como en servidores de la nube) o localmente
     ydl_opts = {
-        'ffmpeg_location': BASE_DIR if os.path.exists(os.path.join(BASE_DIR, 'ffmpeg.exe')) else None,
-        'outtmpl': plantilla_salida,
-        'concurrent_fragment_downloads': 8,
-        'ignoreerrors': False,
-        'quiet': True,
-        'no_warnings': True,
-        'restrictfilenames': True,  # Nombres limpios para evitar problemas en URLs
-    }
+            'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
+            'quiet': True,
+            'no_warnings': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'ios']
+                }
+            },
+    } 
 
     if opcion == '1':
         ydl_opts.update({

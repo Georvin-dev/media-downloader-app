@@ -1,14 +1,16 @@
 FROM python:3.10-slim
 
-# Instalar ffmpeg
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
+# Copiar e instalar dependencias primero
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Copiar todo el código del proyecto
 COPY . .
 
-# Comando exacto para arrancar Flask en Render con gunicorn
+# Exponer el puerto predeterminado de Render
+EXPOSE 10000
+
+# Arrancar la app con gunicorn
 CMD ["gunicorn", "-b", "0.0.0.0:10000", "downloaderapp:app"]

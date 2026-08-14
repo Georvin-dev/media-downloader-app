@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify, redirect
+import os
+from flask import Flask, render_template, request, jsonify
 import yt_dlp
 
 app = Flask(__name__)
@@ -18,7 +19,7 @@ def descargar():
 
     is_audio = (opcion == '2')
 
-    # Configuración ligera para obtener únicamente el enlace directo sin descargar en Render
+    # Configuración ligera para extraer solo el enlace de streaming
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -26,7 +27,7 @@ def descargar():
         'format': 'bestaudio/best' if is_audio else 'best[ext=mp4]/best',
         'extractor_args': {
             'youtube': {
-                'player_client': ['mweb', 'android']
+                'player_client': ['mweb', 'ios']
             }
         }
     }
@@ -35,7 +36,6 @@ def descargar():
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             
-            # Extraer enlace si es playlist o video único
             if 'entries' in info:
                 info = info['entries'][0]
 

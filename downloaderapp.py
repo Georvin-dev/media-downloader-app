@@ -51,7 +51,7 @@ def descargar():
         })
     elif opcion == '2':
         ydl_opts.update({
-            'format': 'bestaudio/best',
+            'format': 'bestaudio',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',

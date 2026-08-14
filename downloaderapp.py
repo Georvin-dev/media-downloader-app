@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify, send_file
 import os
 import glob
 import shutil
-import yt_dlp
+import requests
 
 app = Flask(__name__)
 
@@ -23,61 +23,53 @@ def descargar():
     if not url:
         return jsonify({'success': False, 'message': 'Debes ingresar una URL válida.'}), 400
 
-    # Crear una carpeta temporal única por petición para evitar conflictos de nombres entre usuarios
     import uuid
     session_id = str(uuid.uuid4())
     temp_dir = os.path.join(DOWNLOAD_DIR, session_id)
     os.makedirs(temp_dir, exist_ok=True)
 
-    plantilla_salida = os.path.join(temp_dir, '%(title)s.%(ext)s')
+    # Configuración según la opción (1 = MP4, 2 = MP3)
+    is_audio = (opcion == '2')
 
-    # Si ffmpeg está en el sistema (como en servidores de la nube) o localmente
-    ydl_opts = {
-        'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
-        'quiet': True,
-        'no_warnings': True,
-        'cookiefile': os.path.join(BASE_DIR, 'cookies.txt'),
-        'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
-        'quiet': True,
-        'no_warnings': True,
-        'username': 'oauth2',
-        'password': '',
-            }
-        }
+    payload = {
+        'url': url,
+        'downloadMode': 'audio' if is_audio else 'auto',
+        'audioFormat': 'mp3' if is_audio else 'best',
+        'videoQuality': '1080'
     }
 
-    if opcion == '1':
-        ydl_opts.update({
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-            'merge_output_format': 'mp4',
-        })
-    elif opcion == '2':
-        ydl_opts.update({
-            'format': 'bestaudio',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '320',
-            }],
-        })
-    else:
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        return jsonify({'success': False, 'message': 'Opción no válida.'}), 400
+    headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+    }
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+        # Llamada a la API pública de Cobalt para bypass de restricciones
+        response = requests.post('https://api.cobalt.tools/', json=payload, headers=headers, timeout=15)
+        res_data = response.json()
 
-        # Buscar el archivo generado dentro de la carpeta temporal
-        archivos = glob.glob(os.path.join(temp_dir, '*'))
-        if not archivos:
+        if response.status_code != 200 or res_data.get('status') == 'error':
+            error_msg = res_data.get('text', 'No se pudo procesar el enlace con la API.')
             shutil.rmtree(temp_dir, ignore_errors=True)
-            return jsonify({'success': False, 'message': 'No se pudo generar el archivo.'}), 500
+            return jsonify({'success': False, 'message': f'Error de descarga: {error_msg}'}), 400
 
-        archivo_descargado = archivos[0]
-        nombre_archivo = os.path.basename(archivo_descargado)
+        # Si Cobalt devuelve un enlace directo o un stream, descargamos el archivo localmente
+        media_url = res_data.get('url')
+        if not media_url:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return jsonify({'success': False, 'message': 'No se obtuvo respuesta válida de la red.'}), 500
 
-        # Retornamos la ruta donde el frontend puede ir a solicitar la descarga del archivo directo
+        # Formato de archivo de salida
+        ext = 'mp3' if is_audio else 'mp4'
+        nombre_archivo = f"video_{session_id[:8]}.{ext}"
+        archivo_path = os.path.join(temp_dir, nombre_archivo)
+
+        # Guardar el archivo en el servidor
+        file_res = requests.get(media_url, stream=True)
+        with open(archivo_path, 'wb') as f:
+            for chunk in file_res.iter_content(chunk_size=8192):
+                f.write(chunk)
+
         return jsonify({
             'success': True,
             'message': '¡Procesado exitosamente! Descargando archivo...',
@@ -94,10 +86,8 @@ def get_file(session_id, filename):
     file_path = os.path.join(temp_dir, filename)
 
     if os.path.exists(file_path):
-        # send_file envía el archivo al navegador/celular del usuario
         response = send_file(file_path, as_attachment=True, download_name=filename)
         
-        # Eliminar la carpeta temporal después de enviar el archivo para no llenar el servidor
         @response.call_on_close
         def cleanup():
             shutil.rmtree(temp_dir, ignore_errors=True)

@@ -1,6 +1,6 @@
-FROM python:3.11-slim
+FROM python:3.10-slim
 
-# Instalar ffmpeg en la imagen del servidor
+# Instalar ffmpeg
 RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -10,6 +10,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 5000
-
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:5000", "downloaderapp:app"]
+# Comando exacto para arrancar Flask en Render con gunicorn
+CMD ["gunicorn", "-b", "0.0.0.0:10000", "downloaderapp:app"]

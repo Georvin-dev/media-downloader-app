@@ -39,7 +39,8 @@ def descargar():
             'cookiefile': os.path.join(BASE_DIR, 'cookies.txt'),
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'ios']
+                  'player_client': ['ios', 'android', 'web_creator'],
+                    'player_skip': ['webpage', 'configs']
                 }
             },
     } 
